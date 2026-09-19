@@ -1,0 +1,27 @@
+# Ambientes virtuais
+venv/
+.venv/
+env/
+
+# Arquivos de credenciais e variaveis de ambiente
+.env
+credentials.json
+token.json
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Diretorios de saida gerados
+estudos_canvas/
+agenda_academica.ics
+teste_agenda.ics
+*.ics
+
+# IDEs e editores
+.vscode/
+.idea/
+.gemini/

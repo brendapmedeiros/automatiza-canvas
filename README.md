@@ -1,41 +1,29 @@
 # Automacao Academica: Canvas LMS -> NotebookLM & Google Calendar
 
-Criei essa automacao em Python para resolver dois problemas reais da minha rotina na faculdade (ADS - Termo 5):
+Criei essa automacao em Python para resolver dois problemas da minha rotina na faculdade:
 
 1. **Estudar com IA sem retrabalho manual:** Extrair todo o conteudo das aulas e apostilas do Canvas em Markdown limpo para subir direto no Google NotebookLM (Gemini) e ter um tutor que realmente conhece a materia.
 2. **Nao perder prazos:** Puxar automaticamente as entregas e questionarios do Canvas e cruzar com os meus blocos de trabalho e foco academico no Google Calendar.
 
 ---
 
-## O Desafio Tecnico: O "Markdown Vazio"
+## Desafio Tecnico:
 
-No inicio, ao extrair o HTML das paginas pela API do Canvas, os arquivos `.md` gerados ficavam praticamente vazios (apenas com o titulo e o link). 
+No inicio, extraindo o HTML das paginas pela API do Canvas, os arquivos gerados ficavam praticamente vazios apenas com o titulo e o link, porque o texto da apostila não ficava no no corpo da pagina do Canvas. Ela embute uma plataforma externa via <iframe>. Como o NotebookLM nao faz login na faculdade, subir apenas o link do Canvas nao servia para nada.
 
-O motivo: a instituicao (UNIFESO) nao guarda o texto da apostila no corpo da pagina do Canvas. Ela embute uma plataforma externa (**Liviu**) via `<iframe>`. Como o NotebookLM nao faz login na faculdade, subir apenas o link do Canvas nao servia para nada.
-
-### Como resolvi (Engenharia Reversa):
-- Inspecionei as chamadas de rede do player da Liviu e localizei o endpoint publico da API: `GET https://api.liviu.com.br/public-link/{uuid}`.
-- Escrevi um parser recursivo em Python que le a arvore JSON do material, extrai topicos, secoes, quadros conceituais, tabelas e blocos de codigo formatados.
-- Integrei essa extracao no pipeline principal. O resultado foi a geracao de **53 arquivos Markdown** totalizando mais de **700 KB** de conteudo academico estruturado.
+### Como resolvi:
+- Inspecionei as chamadas de rede do player da plataforma e apontei para oo endpoint publico da API
+- Implementei um parser em Python que lê a arvore JSON dos materiais, extrai tópicos, seções, quadros, tabelas e blocos de codigo formatados.
+- Integrei essa extracao na pipeline principal. O resultado foi a geracao de 53 arquivos markdown com mais de 700 KB de conteudo estruturado.
 
 ---
 
-## Disciplinas Monitoradas
+## Como executar
 
-- `EADCSTAD05 - Arquitetura e Aplicacoes para Mobile`
-- `EADCSTAD05 - Desenvolvimento de Aplicacoes Hibridas`
-- `EADCSTAD05 - Desenvolvimento de Aplicacoes Web-Mobile`
-- `EADCSTAD05 - Design Thinking e Gestao da Inovacao`
-- `EADCSTAD05 - MVP Mobile Development`
-
----
-
-## Como Rodar
-
-### 1. Clonar e Instalar Dependencias
+### 1. Clonar e instalar dependências
 
 ```powershell
-git clone https://github.com/brendapmedeiros/canvas-academic-automation.git
+git clone https://github.com/brendapmedeiros/automatiza-canvas.git
 cd canvas-academic-automation
 
 python -m venv venv
@@ -43,7 +31,7 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-### 2. Configurar as Variaveis (.env)
+### 2. Configurar as variáveis
 
 Copie o `.env.example` para `.env` e preencha suas credenciais:
 
@@ -53,11 +41,9 @@ CANVAS_API_TOKEN=seu_token_gerado_no_canvas
 CALENDAR_ID=primary
 ```
 
-*(Para gerar o token no Canvas: Conta > Configuracoes > Tokens de Acesso Aprovados > Novo Token de Acesso).*
-
 ### 3. Executar
 
-- **Rodar tudo (conteudo para o NotebookLM + agenda .ics):**
+- **Rodar tudo (conteúdo para o NotebookLM + agenda ics):**
   ```powershell
   python app.py
   ```
@@ -84,11 +70,11 @@ CALENDAR_ID=primary
 ### No NotebookLM
 1. Acesse `notebooklm.google.com` e crie um caderno.
 2. Em **Adicionar fontes**, faca upload dos arquivos `.md` gerados na pasta `estudos_canvas/[Disciplina]/`.
-3. Pronto. A IA tera o texto integral das aulas, teorias e codigos para responder suas duvidas.
+3. Pronto. A IA vai ter acesso ao texto integral das aulas, teorias e códigos para responder suas dúvidas.
 
 ### No Google Calendar
 1. O script gera o arquivo `agenda_academica.ics` na raiz do projeto.
-2. No Google Calendar Web, va em **Configuracoes > Importar e exportar**.
+2. No Google Calendar Web, Configuracoes > Importar e exportar
 3. Selecione o arquivo `.ics` e importe na sua agenda.
 4. Ele adiciona a rotina de expediente (09:00-18:00), intervalo (18:00-19:00), foco academico (19:00-20:15), bloco de MVP no sabado (10:00-12:00) e os prazos avaliativos do Canvas.
 

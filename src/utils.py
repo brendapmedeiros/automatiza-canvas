@@ -15,18 +15,23 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+class CleanConsoleFormatter(logging.Formatter):
+    """Formatador minimalista e limpo para o terminal de desenvolvimento."""
+    def format(self, record):
+        if record.levelno == logging.ERROR:
+            return f"[erro] {record.getMessage()}"
+        elif record.levelno == logging.WARNING:
+            return f"[alerta] {record.getMessage()}"
+        return record.getMessage()
+
 def setup_logger(name: str = "canvas_automation", level: int = logging.INFO) -> logging.Logger:
-    """Configura um logger padronizado e limpo para o console."""
+    """Configura um logger minimalista e limpo para o console."""
     logger = logging.getLogger(name)
     if not logger.handlers:
         logger.setLevel(level)
-        formatter = logging.Formatter(
-            fmt="%(asctime)s [%(levelname)s] %(message)s",
-            datefmt="%H:%M:%S"
-        )
         ch = logging.StreamHandler(sys.stdout)
         ch.setLevel(level)
-        ch.setFormatter(formatter)
+        ch.setFormatter(CleanConsoleFormatter())
         logger.addHandler(ch)
     return logger
 

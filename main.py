@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 """
-================================================================================
 Automacao Academica: Canvas LMS -> Gemini Notebook (NotebookLM) & Google Calendar
 Desenvolvido para Brenda Medeiros - Engenharia de Automacao & Operacoes
-================================================================================
 """
 
 import sys
 import os
-import io
 import argparse
 from pathlib import Path
 
@@ -32,19 +29,49 @@ from src.canvas_client import CanvasClient
 from src.content_extractor import ContentExtractor
 from src.calendar_sync import CalendarSyncManager
 
+def show_markdown_preview():
+    """Exibe no terminal uma amostra legivel e estruturada do Markdown para captura de tela."""
+    preview_file = (
+        OUTPUT_DIR
+        / "EADCSTAD05_-_DESENVOLVIMENTO_DE_APLICAÇÕES_HÍBRIDAS"
+        / "Unidade_02_Desenvolvimento_de_Interfaces_com_HTML5,_CSS3_e_JavaScript.md"
+    )
+    if not preview_file.exists():
+        mds = list(OUTPUT_DIR.glob("**/*.md"))
+        if not mds:
+            print("[alerta] Nenhum arquivo gerado ainda. Execute 'python app.py' para extrair os materiais.")
+            return
+        preview_file = mds[0]
+
+    with open(preview_file, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    print("\n--- PREVIA DO MATERIAL GERADO ---")
+    print(f"Arquivo: {preview_file.name}")
+    print(f"Volume: {preview_file.stat().st_size / 1024:.1f} KB | {len(lines)} linhas de conteudo didatico")
+    print("-" * 65 + "\n")
+
+    # Exibe trecho rico com titulo, objetivos, teoria e blocos de codigo
+    sample_text = "".join(lines[:50]).strip()
+    print(sample_text)
+
+    print("\n" + "-" * 65)
+    print(f"[ok] Conteudo integro com mais de {len(lines)} linhas pronto para o NotebookLM.")
+    print(f"[ok] Caminho: {preview_file.resolve()}\n")
+
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description="Automacao completa do Canvas LMS para NotebookLM e Google Calendar."
+        description="Automacao do Canvas LMS para NotebookLM e Google Calendar."
     )
     parser.add_argument(
         "--extract-only",
         action="store_true",
-        help="Executa apenas o Modulo 1 (Extracao de conteudos em Markdown e PDFs para NotebookLM)."
+        help="Executa apenas a extracao de conteudos em Markdown e apostilas."
     )
     parser.add_argument(
         "--calendar-only",
         action="store_true",
-        help="Executa apenas o Modulo 2 (Sincronizacao de prazos e geracao de calendario)."
+        help="Executa apenas a sincronizacao de prazos e geracao de calendario."
     )
     parser.add_argument(
         "--ics-only",
@@ -54,52 +81,46 @@ def parse_arguments():
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Testa credenciais do Canvas e lista as disciplinas identificadas sem baixar arquivos."
+        help="Testa credenciais do Canvas e lista as disciplinas identificadas."
+    )
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Exibe no terminal uma previa do Markdown gerado para capturas de tela."
     )
     return parser.parse_args()
 
 def main():
     args = parse_arguments()
 
-    print("\n" + "=" * 75)
-    print("SISTEMA DE AUTOMACAO ACADEMICA: CANVAS LMS -> NOTEBOOKLM & CALENDAR")
-    print("=" * 75 + "\n")
+    if args.preview:
+        show_markdown_preview()
+        sys.exit(0)
 
-    # 1. Validação inicial de ambiente
+    print("\nCanvas Academic Automation (v1.0)")
+    print("Termo 5 - Integracao Canvas LMS, NotebookLM & Calendar\n")
+
+    # 1. Validacao inicial de ambiente
     if not CANVAS_API_URL or not CANVAS_API_TOKEN:
-        logger.error("Configurações do Canvas ausentes no arquivo .env!")
-        print("\n[Atencao] Siga estes passos para configurar:")
-        print("  1. Copie o arquivo '.env.example' para '.env'")
-        print("  2. Preencha CANVAS_API_URL (ex: https://canvas.instructure.com)")
-        print("  3. Preencha CANVAS_API_TOKEN com seu token de acesso pessoal")
+        logger.error("Configuracoes do Canvas ausentes no arquivo .env")
         sys.exit(1)
 
-    # 2. Inicialização do Cliente Canvas
-    logger.info("Inicializando conexão com a API do Canvas...")
+    # 2. Inicializacao do Cliente Canvas
     canvas_client = CanvasClient()
     connected, msg = canvas_client.test_connection()
     if not connected:
-        logger.error(f"Falha na conexão com o Canvas: {msg}")
+        logger.error(f"Falha na conexao: {msg}")
         sys.exit(1)
     logger.info(msg)
 
-    # 3. Busca e Identificação das Disciplinas Ativas
+    # 3. Busca e Identificacao das Disciplinas Ativas
     matched_courses = canvas_client.get_target_courses()
     if not matched_courses:
-        logger.warning(
-            "Nenhuma das disciplinas da lista TARGET_COURSES foi encontrada como ativa. "
-            "Verifique os nomes listados no log acima."
-        )
-        if args.dry_run:
-            sys.exit(0)
+        logger.warning("Nenhuma disciplina da lista foi encontrada como ativa.")
+        sys.exit(0 if args.dry_run else 1)
 
-    # Se for apenas validação rápida (--dry-run)
     if args.dry_run:
-        print("\n--- MODO DE DIAGNOSTICO (DRY-RUN) ---")
-        print(f"Total de disciplinas ativas selecionadas: {len(matched_courses)}")
-        for c in matched_courses:
-            print(f"  - {c.name} (ID: {c.id})")
-        print("\nConexão e disciplinas validadas com sucesso. Pronto para execução completa!")
+        print("\n[ok] Diagnostico concluido: conexao e disciplinas validadas com sucesso.\n")
         sys.exit(0)
 
     run_extract = not args.calendar_only
@@ -109,46 +130,33 @@ def main():
     # MODULO 1: EXTRACAO DE CONTEUDOS PARA GEMINI NOTEBOOK (NOTEBOOKLM)
     # =========================================================================
     if run_extract:
-        print("\n" + "-" * 75)
-        print("MODULO 1: Extraindo Conteudos Textuais e PDFs")
-        print("-" * 75)
+        print("\n[extract] Processando conteudos didaticos das disciplinas...")
         extractor = ContentExtractor(output_base_dir=OUTPUT_DIR)
         extractor.run_all(matched_courses)
-        logger.info(f"Conteudos gerados com sucesso na pasta: {OUTPUT_DIR.resolve()}")
 
     # =========================================================================
     # MODULO 2: SINCRONIZACAO DE PRAZOS E CALENDARIO (GOOGLE CALENDAR / ICS)
     # =========================================================================
     if run_calendar:
-        print("\n" + "-" * 75)
-        print("MODULO 2: Sincronizacao de Prazos e Calendario")
-        print("-" * 75)
+        print("\n[calendar] Coletando prazos e gerando agenda academica...")
         calendar_mgr = CalendarSyncManager()
         deadlines = calendar_mgr.collect_deadlines_from_canvas(matched_courses)
 
-        # Sempre gera o arquivo .ics como entregável imediato
         ics_path = calendar_mgr.generate_ics_file(deadlines, output_path=ICS_OUTPUT_FILE)
-        logger.info(f"Arquivo iCalendar gerado: {Path(ics_path).resolve()}")
+        logger.info(f"[calendar] Arquivo iCalendar gerado: {Path(ics_path).name}")
 
-        # Se não for --ics-only, tenta sincronizar diretamente via API
         if not args.ics_only:
-            logger.info("Tentando sincronizacao direta via Google Calendar API...")
             calendar_mgr.sync_with_google_calendar_api(deadlines)
 
     # =========================================================================
     # RESUMO FINAL DE EXECUCAO
     # =========================================================================
-    print("\n" + "=" * 75)
-    print("PROCESSO CONCLUIDO COM SUCESSO!")
-    print("=" * 75)
+    print("\n[done] Concluido com sucesso.")
     if run_extract:
-        print(f"Base de Estudos (NotebookLM): {OUTPUT_DIR.resolve()}")
-        print("   -> Faca upload dos arquivos .md e PDFs diretamente como fontes no NotebookLM.")
+        print(f"  Materiais (NotebookLM): {OUTPUT_DIR.resolve()}")
     if run_calendar:
-        print(f"Arquivo de Agenda (.ics): {Path(ICS_OUTPUT_FILE).resolve()}")
-        print("   -> Para importar no Google Calendar: Configuracoes > Importar e Exportar > Importar.")
-    print("=" * 75 + "\n")
+        print(f"  Agenda (.ics): {Path(ICS_OUTPUT_FILE).resolve()}")
+    print()
 
 if __name__ == "__main__":
     main()
-

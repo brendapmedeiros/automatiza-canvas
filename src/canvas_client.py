@@ -36,7 +36,7 @@ class CanvasClient:
         try:
             user = self.canvas.get_current_user()
             user_name = getattr(user, "name", "Usuário")
-            return True, f"Conexão bem-sucedida com Canvas LMS. Autenticado como: {user_name}"
+            return True, f"[auth] Autenticado no Canvas como: {user_name}"
         except InvalidAccessToken:
             return False, "Token do Canvas inválido ou expirado. Gere um novo token em sua conta no Canvas."
         except Exception as e:
@@ -74,8 +74,6 @@ class CanvasClient:
 
         target_normalized = [normalize_str(t) for t in TARGET_COURSES]
 
-        logger.info(f"Analisando {len(all_courses)} cursos encontrados no Canvas...")
-
         for course in all_courses:
             course_name = getattr(course, "name", "")
             course_code = getattr(course, "course_code", "")
@@ -85,20 +83,18 @@ class CanvasClient:
 
             is_match = False
             for target_norm in target_normalized:
-                # Correspondência se o alvo estiver contido ou bater com código/nome
                 if target_norm in combined_norm or name_norm in target_norm or target_norm in name_norm:
                     is_match = True
                     break
 
             if is_match and course not in matched_courses:
                 matched_courses.append(course)
-                logger.info(f"  [OK] Disciplina identificada: {course_name} (ID: {course.id})")
 
-
-        if not matched_courses:
-            logger.warning("Nenhum dos cursos cadastrados em TARGET_COURSES foi identificado com precisão.")
-            logger.info("Cursos ativos disponíveis na sua conta Canvas:")
-            for c in all_courses:
-                logger.info(f"  - ID: {c.id} | Nome: {getattr(c, 'name', 'Sem nome')} | Código: {getattr(c, 'course_code', '')}")
+        if matched_courses:
+            logger.info(f"[scan] {len(matched_courses)} disciplinas ativas mapeadas:")
+            for c in matched_courses:
+                logger.info(f"  - {c.name} (ID: {c.id})")
+        else:
+            logger.warning("Nenhuma das disciplinas alvo foi identificada.")
 
         return matched_courses

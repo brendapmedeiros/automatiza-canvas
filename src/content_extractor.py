@@ -24,7 +24,7 @@ class ContentExtractor:
     def extract_course_content(self, course: Course):
         """Extrai todos os módulos, páginas e arquivos de um curso específico."""
         course_name = getattr(course, "name", f"Curso_{course.id}")
-        logger.info(f"=== Iniciando extração: {course_name} ===")
+        logger.info(f"\n[extract] {course_name}")
 
         clean_course_dir_name = sanitize_filename(course_name)
         course_dir = self.output_base_dir / clean_course_dir_name
@@ -43,8 +43,6 @@ class ContentExtractor:
         # 3. Baixar Arquivos Oficiais do Curso (PDFs, apostilas, apresentações)
         self._download_course_files(course, files_dir)
 
-        logger.info(f"=== Extração concluída para: {course_name} ===\n")
-
     def _extract_modules(self, course: Course, course_name: str, course_dir: Path, processed_pages: Set[str]):
         """Itera pelos módulos do curso e processa itens de página e documentos."""
         try:
@@ -57,17 +55,13 @@ class ContentExtractor:
             logger.info("Nenhum módulo estruturado encontrado no curso.")
             return
 
-        logger.info(f"Processando {len(modules)} módulos...")
-
         for idx, module in enumerate(modules, start=1):
             module_name = getattr(module, "name", f"Modulo_{idx}")
-            logger.info(f"  Modulo {idx}: {module_name}")
-
 
             try:
                 items = list(module.get_module_items())
             except Exception as e:
-                logger.warning(f"  Erro ao listar itens do módulo '{module_name}': {e}")
+                logger.warning(f"Erro ao listar itens do módulo '{module_name}': {e}")
                 continue
 
             for item_idx, item in enumerate(items, start=1):
@@ -130,7 +124,8 @@ class ContentExtractor:
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(md_content)
 
-            logger.info(f"    [OK] Salvo: {filename}")
+            size_kb = filepath.stat().st_size / 1024
+            logger.info(f"  -> {filename} ({size_kb:.1f} KB)")
 
 
         except Exception as e:
@@ -195,7 +190,7 @@ class ContentExtractor:
         try:
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(content)
-            logger.info(f"    [OK] Salvo link externo: {filename}")
+            logger.info(f"  -> [link] {filename}")
         except Exception as e:
             logger.debug(f"Erro ao salvar link externo: {e}")
 

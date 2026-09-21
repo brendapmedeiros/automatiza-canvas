@@ -1,162 +1,113 @@
-# Automacao Academica: Canvas LMS -> Gemini Notebook (NotebookLM) & Google Calendar
+# Automacao Academica: Canvas LMS -> NotebookLM & Google Calendar
 
-Solucao de automacao em Python desenvolvida para centralizar a rotina academica, extrair e converter materiais de estudo para bases de conhecimento no NotebookLM (Gemini) e sincronizar prazos e blocos de tempo no Google Calendar.
+Criei essa automacao em Python para resolver dois problemas reais da minha rotina na faculdade (ADS - Termo 5):
 
----
-
-## Visao Geral do Projeto
-
-O sistema resolve dois gargalos operacionais comuns na vida academica:
-1. **Dispersao de Conteudo:** Converte o conteudo HTML de modulos e aulas do Canvas LMS em arquivos Markdown limpos e semanticos, alem de baixar PDFs oficiais organizados por disciplina para ingestao direta como fontes no NotebookLM.
-2. **Gestao de Tempo e Prazos:** Coleta todas as tarefas e questionarios avaliativos do Canvas e os integra ao Google Calendar (via API OAuth2 e/ou exportacao universal `.ics`), combinando com blocos fixos de trabalho e foco academico.
+1. **Estudar com IA sem retrabalho manual:** Extrair todo o conteudo das aulas e apostilas do Canvas em Markdown limpo para subir direto no Google NotebookLM (Gemini) e ter um tutor que realmente conhece a materia.
+2. **Nao perder prazos:** Puxar automaticamente as entregas e questionarios do Canvas e cruzar com os meus blocos de trabalho e foco academico no Google Calendar.
 
 ---
 
-## Disciplinas Monitoradas (Termo Ativo)
+## O Desafio Tecnico: O "Markdown Vazio"
 
-O script realiza o mapeamento inteligente das seguintes disciplinas:
-- `EADCSTAD05 - Arquitetura e Aplicações para Mobile`
-- `EADCSTAD05 - Desenvolvimento de Aplicações Híbridas`
-- `EADCSTAD05 - Desenvolvimento de Aplicações Web-Mobile`
-- `EADCSTAD05 - Design Thinking e Gestão da Inovação`
+No inicio, ao extrair o HTML das paginas pela API do Canvas, os arquivos `.md` gerados ficavam praticamente vazios (apenas com o titulo e o link). 
+
+O motivo: a instituicao (UNIFESO) nao guarda o texto da apostila no corpo da pagina do Canvas. Ela embute uma plataforma externa (**Liviu**) via `<iframe>`. Como o NotebookLM nao faz login na faculdade, subir apenas o link do Canvas nao servia para nada.
+
+### Como resolvi (Engenharia Reversa):
+- Inspecionei as chamadas de rede do player da Liviu e localizei o endpoint publico da API: `GET https://api.liviu.com.br/public-link/{uuid}`.
+- Escrevi um parser recursivo em Python que le a arvore JSON do material, extrai topicos, secoes, quadros conceituais, tabelas e blocos de codigo formatados.
+- Integrei essa extracao no pipeline principal. O resultado foi a geracao de **53 arquivos Markdown** totalizando mais de **700 KB** de conteudo academico estruturado.
+
+---
+
+## Disciplinas Monitoradas
+
+- `EADCSTAD05 - Arquitetura e Aplicacoes para Mobile`
+- `EADCSTAD05 - Desenvolvimento de Aplicacoes Hibridas`
+- `EADCSTAD05 - Desenvolvimento de Aplicacoes Web-Mobile`
+- `EADCSTAD05 - Design Thinking e Gestao da Inovacao`
 - `EADCSTAD05 - MVP Mobile Development`
 
 ---
 
-## Estrutura do Repositorio
+## Como Rodar
 
-```text
-Organização acadêmica/
-│
-├── .env.example              # Modelo de configuracao de variaveis de ambiente
-├── requirements.txt          # Dependencias do projeto
-├── README.md                 # Documentacao e instrucoes de uso
-├── main.py                   # Ponto de entrada CLI (execucao completa ou modular)
-│
-├── src/
-│   ├── __init__.py
-│   ├── config.py             # Configuracoes de rotina, fuso horario e disciplinas
-│   ├── canvas_client.py      # Cliente de conexao com Canvas LMS e paginacao automatica
-│   ├── content_extractor.py  # Modulo 1: Extracao HTML -> Markdown e download de PDFs
-│   ├── calendar_sync.py      # Modulo 2: Sincronizacao Google Calendar API e gerador .ics
-│   └── utils.py              # Limpeza Windows-safe de caminhos, logger e parser Markdown
-│
-└── estudos_canvas/           # [Gerado automaticamente] Estrutura de materiais
-    └── [Nome_Da_Disciplina]/
-        ├── Unidade_01_[Titulo].md
-        ├── Unidade_02_[Titulo].md
-        └── arquivos/
-            └── apostila_oficial.pdf
-```
+### 1. Clonar e Instalar Dependencias
 
----
-
-## Pre-requisitos & Instalacao
-
-### 1. Acessar a Pasta do Projeto
-Abra o terminal na pasta do projeto:
 ```powershell
-cd "c:\Users\brend\Desktop\Organização acadêmica"
-```
+git clone https://github.com/brendapmedeiros/canvas-academic-automation.git
+cd canvas-academic-automation
 
-### 2. Criar e Ativar Ambiente Virtual (Recomendado)
-```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
-```
-
-### 3. Instalar as Dependencias
-```powershell
 pip install -r requirements.txt
 ```
 
----
+### 2. Configurar as Variaveis (.env)
 
-## Configuracao de Credenciais (.env)
-
-Copie o arquivo `.env.example` para `.env`:
-```powershell
-Copy-Item .env.example .env
-```
-
-Abra o arquivo `.env` e preencha suas chaves:
+Copie o `.env.example` para `.env` e preencha suas credenciais:
 
 ```ini
-# 1. URL base do Canvas da sua faculdade (ex: https://canvas.instructure.com ou o dominio da sua instituicao)
-CANVAS_API_URL=https://canvas.instructure.com
-
-# 2. Seu Token de Acesso do Canvas
-# Como gerar: Acesse o Canvas > Clique na foto de perfil (Conta) > Configuracoes > Tokens de Acesso Aprovados > + Novo Token de Acesso
-CANVAS_API_TOKEN=seu_token_gerado_aqui
-
-# 3. Identificador do Google Calendar
+CANVAS_API_URL=https://unifeso.instructure.com
+CANVAS_API_TOKEN=seu_token_gerado_no_canvas
 CALENDAR_ID=primary
 ```
 
+*(Para gerar o token no Canvas: Conta > Configuracoes > Tokens de Acesso Aprovados > Novo Token de Acesso).*
+
+### 3. Executar
+
+- **Rodar tudo (conteudo para o NotebookLM + agenda .ics):**
+  ```powershell
+  python app.py
+  ```
+
+- **Apenas extrair o conteudo das aulas:**
+  ```powershell
+  python app.py --extract-only
+  ```
+
+- **Apenas gerar a agenda:**
+  ```powershell
+  python app.py --calendar-only
+  ```
+
+- **Testar conexao com o Canvas:**
+  ```powershell
+  python app.py --dry-run
+  ```
+
 ---
 
-## Como Executar
+## Como Usar as Saidas
 
-### 1. Diagnostico e Validacao Rapida (`--dry-run`)
-Valida as credenciais do Canvas, testa a conectividade e lista todas as disciplinas encontradas sem realizar downloads pesados:
-```powershell
-python main.py --dry-run
+### No NotebookLM
+1. Acesse `notebooklm.google.com` e crie um caderno.
+2. Em **Adicionar fontes**, faca upload dos arquivos `.md` gerados na pasta `estudos_canvas/[Disciplina]/`.
+3. Pronto. A IA tera o texto integral das aulas, teorias e codigos para responder suas duvidas.
+
+### No Google Calendar
+1. O script gera o arquivo `agenda_academica.ics` na raiz do projeto.
+2. No Google Calendar Web, va em **Configuracoes > Importar e exportar**.
+3. Selecione o arquivo `.ics` e importe na sua agenda.
+4. Ele adiciona a rotina de expediente (09:00-18:00), intervalo (18:00-19:00), foco academico (19:00-20:15), bloco de MVP no sabado (10:00-12:00) e os prazos avaliativos do Canvas.
+
+---
+
+## Estrutura do Projeto
+
+```text
+.
+├── .env.example
+├── requirements.txt
+├── README.md
+├── app.py                   # Atalho de execucao
+├── main.py                  # Ponto de entrada CLI
+├── src/
+│   ├── config.py            # Configuracoes, disciplinas e horarios
+│   ├── canvas_client.py     # Integracao com a API do Canvas LMS
+│   ├── content_extractor.py # Extracao dos modulos e scraping Liviu
+│   ├── calendar_sync.py     # Coleta de tarefas e gerador .ics
+│   └── utils.py             # Parser Liviu, conversor Markdown e limpeza de arquivos
+└── estudos_canvas/          # Saida dos Markdowns organizada por disciplina
 ```
-
-### 2. Execucao Completa (Extracao + Calendario)
-Executa a extracao completa dos materiais para o NotebookLM e gera a agenda com todos os prazos e rotinas:
-```powershell
-python main.py
-```
-
-### 3. Execucao Modular
-Se desejar executar apenas um dos modulos:
-
-- **Apenas extracao de materiais (Markdown + PDFs):**
-  ```powershell
-  python main.py --extract-only
-  ```
-
-- **Apenas sincronizacao de prazos e calendario:**
-  ```powershell
-  python main.py --calendar-only
-  ```
-
-- **Gerar apenas o arquivo de integracao `.ics` (sem solicitar login OAuth do Google):**
-  ```powershell
-  python main.py --calendar-only --ics-only
-  ```
-
----
-
-## Especificacoes da Rotina e Calendario
-
-O modulo de calendario gera os seguintes blocos e prazos:
-
-| Tipo | Dias | Horario | Descricao |
-| :--- | :--- | :--- | :--- |
-| **Trabalho** | Segunda a Sexta | `09:00 - 18:00` | Bloco fixo de expediente |
-| **Intervalo / Descompressao** | Segunda a Sexta | `18:00 - 19:00` | Descompressao e transicao |
-| **Foco Academico** | Segunda a Sexta | `19:00 - 20:15` | Estudo das disciplinas e tarefas |
-| **MVP Mobile Development** | Sabado | `10:00 - 12:00` | Bloco dedicado ao MVP Mobile |
-| **Domingo Livre** | Domingo | *Sem eventos* | 100% livre de demandas academicas |
-| **Avaliacoes U1 a U3** | 03 de Outubro | *Dia inteiro* | Prazo limite das Unidades 1 a 3 |
-| **Avaliacoes Finais** | 31 de Outubro | *Dia inteiro* | Avaliacoes presenciais/finais |
-| **Tarefas e Questionarios** | Conforme Canvas | *Dia inteiro* | Sincronizados com link e pontuacao |
-
-### Como Importar o Arquivo de Integracao `.ics` no Google Calendar
-1. Acesse o Google Calendar Web (calendar.google.com).
-2. No canto superior direito, clique no icone de Configuracoes.
-3. No menu lateral esquerdo, clique em Importar e exportar.
-4. Em Importar, selecione o arquivo `agenda_academica.ics` gerado na pasta do projeto.
-5. Selecione a agenda de destino e clique em Importar.
-
----
-
-## Como Ingerir os Materiais no Gemini Notebook (NotebookLM)
-
-1. Acesse o NotebookLM (notebooklm.google.com).
-2. Crie um novo caderno para o termo ou um caderno especifico para cada disciplina (ex: `Notebook: Arquitetura Mobile`).
-3. Clique em Adicionar Fontes -> Fazer upload de arquivos.
-4. Navegue ate a pasta correspondente em `estudos_canvas/[Nome_Da_Disciplina]/` e selecione todos os arquivos `.md` e os arquivos `.pdf` da pasta `arquivos/`.
-5. O NotebookLM indexara instantaneamente todo o conteudo com cabecalhos e metadados semanticos para gerar resumos, flashcards e simulacoes de prova.

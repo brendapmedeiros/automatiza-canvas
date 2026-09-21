@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import List, Set
 import requests
@@ -8,7 +9,7 @@ from canvasapi.page import Page
 from canvasapi.file import File
 
 from src.config import OUTPUT_DIR
-from src.utils import logger, sanitize_filename, html_to_clean_markdown
+from src.utils import logger, sanitize_filename, html_to_clean_markdown, fetch_and_parse_liviu
 
 class ContentExtractor:
     """
@@ -163,7 +164,7 @@ class ContentExtractor:
             )
 
     def _save_external_link(self, item: ModuleItem, module_name: str, module_idx: int, course_dir: Path, course_name: str):
-        """Salva referência limpa a materiais externos e links de apoio."""
+        """Salva referência limpa a materiais externos e links de apoio, extraindo conteúdo se for Liviu."""
         title = getattr(item, "title", "Link Externo")
         external_url = getattr(item, "external_url", "")
         if not external_url:
@@ -172,17 +173,29 @@ class ContentExtractor:
         filename = f"Unidade_{module_idx:02d}_Link_{sanitize_filename(title)}.md"
         filepath = course_dir / filename
 
+        # Verifica se o link externo aponta para a plataforma Liviu
+        liviu_match = re.search(r"liviu\.com\.br/[^\"\'\s]+/([a-f0-9\-]{36})", external_url, re.IGNORECASE)
+        liviu_content = ""
+        if liviu_match:
+            uuid = liviu_match.group(1)
+            liviu_content = fetch_and_parse_liviu(uuid)
+
         content = (
             f"# {title}\n\n"
             f"- **Disciplina:** {course_name}\n"
             f"- **Módulo:** {module_name}\n"
             f"- **Recurso Externo:** [{title}]({external_url})\n\n"
             "---\n\n"
-            f"Link oficial de apoio: <{external_url}>\n"
         )
+        if liviu_content:
+            content += liviu_content + "\n"
+        else:
+            content += f"Link oficial de apoio: <{external_url}>\n"
+
         try:
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(content)
+            logger.info(f"    [OK] Salvo link externo: {filename}")
         except Exception as e:
             logger.debug(f"Erro ao salvar link externo: {e}")
 
